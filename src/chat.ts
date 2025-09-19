@@ -1,0 +1,234 @@
+import './style.css';
+
+// ---------------------------
+// 1. Import Supabase client
+// ---------------------------
+import { supabase } from "./supabaseConfig.ts";
+
+// ---------------------------
+// 3. Variables for voice usage
+// ---------------------------
+const localUsage = new Map(); // stores how many seconds of voice each user has used
+const usageLimitSeconds = 5 * 60; // 5 minutes limit per user (in seconds)
+const speechRate = 3; // speed at which the Echo speaks
+const averageWordsPerMinute = 30; // estimate for calculating how long speech takes
+
+const signOutButton = document.getElementById("sign-out-button") as HTMLButtonElement;
+const sendButton = document.getElementById("send-button") as HTMLButtonElement;
+const messageElement = document.getElementById("usage-message") as HTMLDivElement; // HTML element to display warning messages
+const input = document.getElementById('user-input') as HTMLInputElement;
+const chatWindow = document.getElementById('chat-window') as HTMLElement;
+
+sendButton.disabled = true;
+
+let currentUser = null;
+
+supabase.auth.onAuthStateChange((event, session) => {
+  if (session?.user) {
+    currentUser = session.user;
+    console.log("User signed in:", currentUser.email);
+    sendButton.disabled = false;
+  } 
+  else {
+    currentUser = null;
+    window.location.href = '/login.html';
+    sendButton.disabled = true;
+  }
+});
+
+signOutButton.addEventListener("click", async () => {
+  try {
+    await supabase.auth.signOut();
+    console.log("User signed out");
+    window.location.href = "/login.html"; // redirect to login
+  } catch (error) {
+    console.error("Error signing out:", error);
+  }
+});
+
+sendButton.addEventListener("click", sendMessage);
+
+// ---------------------------
+// 5. Get or create Echo
+// ---------------------------
+
+async function getOrCreateEcho(userId, echoName) { 
+  // Tries to find an existing Echo for this user
+  let { data: echo, error } = await supabase
+    .from('echos')        // table name
+    .select('*')          // get all columns
+    .eq('name', echoName) // where name matches echoName
+    .eq('user_id', userId) // where user_id matches the current user
+    .single();            // expect only one row
+
+  if (!echo) {
+    // If no Echo exists, create a new one
+    const { data, error } = await supabase // YOU ARE RE-DECLARING ERROR HERE - REMEMBER TO COME BACK AND FIX THIS (OR AT LEAST CONSIDER IT)
+      .from('echos')
+      .insert([{ user_id: userId, name: echoName }]) // insert a row with user_id and name
+      .select() 
+      .single();
+    return data; // return the newly created Echo
+  }
+
+  return echo; // return existing Echo if found
+}
+
+
+
+// Define a function  that returns generic response regardless of input
+function getFakeResponse(input) { 
+    return "that's a great question! Let me tell you about it"; // generic response
+}
+
+
+function updateUsageBar(echoId) {
+  // assign the value for the given echoID if it is not 0 to usedSeconds variable. If the value for echoID is a falsy value,
+  const usedSeconds = localUsage.get(echoId) || 0; //  assign value of 0 to usedSeconds variable
+  const usedMinutes = Math.floor(usedSeconds / 60); // assign number of inutes used in integer floors to usedMinutes variable
+  document.getElementById("used-minutes").textContent = usedMinutes; // fill bar with number of minutes used - floor values used
+}
+
+
+async function initializeUsage(echoId) {
+  const { data: echo, error } = await supabase
+    .from('echos')
+    .select('usage_seconds')
+    .eq('id', echoId)
+    .single();
+
+  if (!error && echo) {
+    localUsage.set(echoId, echo.usage_seconds || 0);
+    updateUsageBar(echoId); // update UI immediately
+  }
+
+  if (error) {
+    console.error("Failed to fetch usage:", error);
+    return;
+}
+}
+
+
+async function speakText(text, echoId) {
+  if (!echoId) {
+    console.error("No echoId provided");
+    return;
+  }
+
+  // Initialize local usage if needed
+  if (!localUsage.has(echoId)) localUsage.set(echoId, 0);
+
+  const usedSeconds = localUsage.get(echoId);
+
+  // Check quota locally first
+  if (usedSeconds >= usageLimitSeconds) {
+    alert(`You have reached your usage limit for ${currentEcho.name}! Please review payment options.`)
+    sendButton.disabled = true;
+    playButton.disabled = true;
+    return;
+  }
+
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.rate = speechRate;
+
+  const words = text.trim().split(/\s+/).length;
+  const estimatedSeconds = (words / averageWordsPerMinute) * 60;
+
+  utterance.onend = async () => {
+    // Update local cache
+    const newUsage = Math.min(localUsage.get(echoId) + estimatedSeconds, usageLimitSeconds);
+    localUsage.set(echoId, newUsage);
+    updateUsageBar(echoId);
+
+    // Show warnings if necessary
+    const remainingSeconds = usageLimitSeconds - newUsage;
+    if (remainingSeconds === 120) {
+      messageElement.textContent = "You only have about two more minutes of usage!";
+    }
+    else if (remainingSeconds <= 90) {
+      messageElement.textContent = "" 
+    }
+    
+
+    // Async sync to Supabase
+    try {
+      await supabase
+        .from('echos')
+        .update({ usage_seconds: newUsage })
+        .eq('id', echoId);
+    } catch (err) {
+      console.error("Failed to sync usage:", err);
+      // Optional: retry later or queue updates
+    }
+  };
+
+  speechSynthesis.speak(utterance);
+}
+
+
+function extractEchoNameFromMessage(message) {
+  const words = message.trim().split(/\s+/);
+  // Assume the first word is just a greeting, so drop it
+  return words.slice(1).join(" ");
+}
+
+// current user is given by supabase authentication
+// echoId is given by first message
+
+let currentEcho = null 
+
+async function sendMessage() {
+  // Use cached user instead of calling getUser() every time
+  if (!currentUser) return alert("Please sign in first!");
+
+  // Get the cached user's ID
+  const userId = currentUser.id;
+
+  const message = input.value.trim();
+  if (!message) return;
+  
+  if (!currentEcho) {
+    // Only create/fetch the echo the first time
+    currentEcho = await getOrCreateEcho(userId, extractEchoNameFromMessage(message));
+    document.getElementById("echo-header").textContent = `Echo Profile: ${currentEcho.name}`;
+    await initializeUsage(currentEcho.id);
+  }
+
+  const usedSeconds = localUsage.get(currentEcho.id) || 0;
+  if (usedSeconds >= usageLimitSeconds) {
+    alert(`You have reached your usage limit for ${currentEcho.name}! Please review payment options.`);
+    sendButton.disabled = true;
+    return;
+  }
+
+  // Display user message in chat
+  const userMsg = document.createElement('div');
+  userMsg.textContent = "You: " + message;
+  chatWindow.appendChild(userMsg);
+
+  const response = getFakeResponse(message);
+
+  // Display and speak Echo response
+  const echoContainer = document.createElement('div');
+  const responseText = document.createElement('span');
+  responseText.textContent = `${currentEcho.name}: ${response}`;
+  echoContainer.appendChild(responseText);
+
+  const playButton = document.createElement('button');
+  playButton.textContent = '🔊';
+  playButton.style.marginLeft = '10px';
+  playButton.onclick = () => speakText(response, currentEcho.id);
+  echoContainer.appendChild(playButton);
+
+  chatWindow.appendChild(echoContainer);
+
+  // Speak and track usage
+  speakText(response, currentEcho.id);
+
+  input.value = ''; // clear input
+}
+
+
+
+
+

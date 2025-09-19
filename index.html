@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EchoTree Lite Login</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <h1>Welcome to EchoTree Lite</h1>
+
+    <!-- Auth form -->
+    <div id="auth-container">
+      <input type="email" id="email-input" placeholder="Email" required />
+      <input type="password" id="password-input" placeholder="Password" required />
+
+      <!-- Static instructional note -->
+      <p style="font-size: 0.9em; color: gray; margin-top: 5px;">
+        Enter a valid email address and a password with at least 6 characters.
+        Then click below. Your account will be created automatically with
+        the email and password you enter above.
+      </p>
+      <p style="font-size: 0.9em; color: gray; margin-top: 5px;">
+        New User? You will be sent an confirmation email to the email address you provided.
+        If you are not immediately logged in when you enter your email and password check your email
+        (spam included) for a confirmation email from supabase. If you are logged in immediately you will be able 
+        to use echotree lite for this browser session, but you may be locked out in future sessions if 
+        you don't confirm your email. 
+      </p>
+
+      <button id="sign-in-button">Sign In / Create Account</button>
+      <div id="auth-message" style="color: red; margin-top: 5px;"></div>
+    </div>
+  </main>
+
+  <script type="module" src="/src/main.ts"></script> <!-- separate JS for authentication -->
+</body>
+</html>
