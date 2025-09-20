@@ -222,6 +222,15 @@ async function sendMessage() {
 
   chatWindow.appendChild(echoContainer);
 
+  // ---------------------------
+  // ADDED: Insert echo response into echo_responses table
+  await supabase.from('echo_responses').insert([{
+    echo_id: currentEcho.id,  // ADDED
+    user_id: userId,        // ADDED
+    echo_response: response,         // ADDED
+    user_message: message
+  }]);
+
   // Speak and track usage
   speakText(response, currentEcho.id);
 
