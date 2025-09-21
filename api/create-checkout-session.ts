@@ -35,8 +35,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       line_items: [
         { price: priceMap[plan], quantity: 1 } // replace with your Stripe price ID
       ],
-      success_url: "https://your-vercel-url.vercel.app/success",
-      cancel_url: "https://your-vercel-url.vercel.app/cancel",
+      success_url: "https://echotree-lite.vercel.app/success",
+      cancel_url: "https://echotree-lite.vercel.app/cancel",
     });
 
     res.json({ url: session.url });
