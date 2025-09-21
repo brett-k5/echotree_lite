@@ -5,6 +5,7 @@ import './style.css';
 // ---------------------------
 import { loadStripe } from "@stripe/stripe-js";
 import { supabase } from "./supabaseConfig.ts";
+import type { User } from '@supabase/supabase-js';
 
 
 const stripe = await loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
@@ -22,7 +23,8 @@ const chatWindow = document.getElementById('chat-window') as HTMLElement;
 
 sendButton.disabled = true;
 
-let currentUser = null;
+// currentUser can either be a User or null (if no one is signed in) 
+let currentUser: User | null = null;
 
 supabase.auth.onAuthStateChange((event, session) => {
   if (session?.user) {
@@ -86,7 +88,7 @@ function getFakeResponse(input) {
 }
 
 
-function updateUsageBar(echoId) {
+function updateUsageBar(echoId: string) {
   // assign the value for the given echoID if it is not 0 to usedSeconds variable. If the value for echoID is a falsy value,
   const usedSeconds = localUsage.get(echoId) || 0; //  assign value of 0 to usedSeconds variable
   const usedMinutes = Math.floor(usedSeconds / 60); // assign number of inutes used in integer floors to usedMinutes variable
@@ -94,7 +96,7 @@ function updateUsageBar(echoId) {
 }
 
 
-async function initializeUsage(echoId) {
+async function initializeUsage(echoId: string) {
   const { data: echo, error } = await supabase
     .from('echos')
     .select('usage_seconds')
@@ -113,7 +115,7 @@ async function initializeUsage(echoId) {
 }
 
 
-async function speakText(text, echoId) {
+async function speakText(text: string, echoId: string, playButton: HTMLButtonElement) {
   if (!echoId) {
     console.error("No echoId provided");
     return;
@@ -171,7 +173,7 @@ async function speakText(text, echoId) {
 }
 
 
-function extractEchoNameFromMessage(message) {
+function extractEchoNameFromMessage(message: string) {
   const words = message.trim().split(/\s+/);
   // Assume the first word is just a greeting, so drop it
   return words.slice(1).join(" ");
@@ -180,7 +182,15 @@ function extractEchoNameFromMessage(message) {
 // current user is given by supabase authentication
 // echoId is given by first message
 
-let currentEcho = null 
+// If you have an interface for Echo:
+interface Echo {
+  id: string;       // UUID as string
+  name: string;
+  usage_seconds?: number;
+}
+
+// Then declare currentEcho like this:
+let currentEcho: Echo | null = null;
 
 async function sendMessage() {
   // Use cached user instead of calling getUser() every time
@@ -222,7 +232,7 @@ async function sendMessage() {
   const playButton = document.createElement('button');
   playButton.textContent = '🔊';
   playButton.style.marginLeft = '10px';
-  playButton.onclick = () => speakText(response, currentEcho.id);
+  playButton.onclick = () => speakText(response, currentEcho.id, playButton);
   echoContainer.appendChild(playButton);
 
   chatWindow.appendChild(echoContainer);
@@ -237,7 +247,7 @@ async function sendMessage() {
   }]);
 
   // Speak and track usage
-  speakText(response, currentEcho.id);
+  speakText(response, currentEcho.id, playButton);
 
   input.value = ''; // clear input
 }

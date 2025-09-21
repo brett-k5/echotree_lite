@@ -33,7 +33,7 @@ signInButton.addEventListener('click', async () => {
   console.log("Attempting sign-in with:", { email, password });
 
   // Attempt to sign in
-  let { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  let { data: _data, error } = await supabase.auth.signInWithPassword({ email, password });
 
   // If user doesn't exist, automatically sign them up
   if (error) {

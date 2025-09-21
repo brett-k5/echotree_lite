@@ -30,7 +30,7 @@ setPasswordButton.addEventListener('click', async () => {
   setPasswordButton.textContent = "Updating...";
 
   try {
-    const { data, error } = await supabase.auth.updateUser({
+    const { data: _data, error } = await supabase.auth.updateUser({
       password: newPassword
     });
 

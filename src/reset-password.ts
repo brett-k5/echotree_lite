@@ -26,7 +26,7 @@ sendButton.addEventListener('click', async () => {
   resetMessage.textContent = "";
 
   try {
-    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+    const { data: _data, error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: window.location.origin + "/set-new-password.html", // optional: where users are sent after clicking the reset link
     });
 
