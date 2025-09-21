@@ -83,7 +83,7 @@ async function getOrCreateEcho(userId: string, echoName: string) {
 
 
 // Define a function  that returns generic response regardless of input
-function getFakeResponse(input) { 
+function getFakeResponse() { 
     return "that's a great question! Let me tell you about it"; // generic response
 }
 
@@ -92,7 +92,7 @@ function updateUsageBar(echoId: string) {
   // assign the value for the given echoID if it is not 0 to usedSeconds variable. If the value for echoID is a falsy value,
   const usedSeconds = localUsage.get(echoId) || 0; //  assign value of 0 to usedSeconds variable
   const usedMinutes = Math.floor(usedSeconds / 60); // assign number of inutes used in integer floors to usedMinutes variable
-  document.getElementById("used-minutes")?.textContent = usedMinutes.toString(); // fill bar with number of minutes used - floor values used
+  document.getElementById("used-minutes").textContent = usedMinutes.toString(); // fill bar with number of minutes used - floor values used
 }
 
 
@@ -206,7 +206,7 @@ async function sendMessage() {
   if (!currentEcho) {
     // Only create/fetch the echo the first time
     currentEcho = await getOrCreateEcho(userId, extractEchoNameFromMessage(message));
-    document.getElementById("echo-header")?.textContent = `Echo Profile: ${currentEcho!.name}`;
+    document.getElementById("echo-header").textContent = `Echo Profile: ${currentEcho!.name}`;
     await initializeUsage(currentEcho!.id);
   }
 
@@ -222,7 +222,7 @@ async function sendMessage() {
   userMsg.textContent = "You: " + message;
   chatWindow.appendChild(userMsg);
 
-  const response = getFakeResponse(message);
+  const response = getFakeResponse();
 
   // Display and speak Echo response
   const echoContainer = document.createElement('div');
