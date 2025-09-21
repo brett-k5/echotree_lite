@@ -8,7 +8,7 @@ import { supabase } from "./supabaseConfig.ts";
 import type { User } from '@supabase/supabase-js';
 
 
-const stripe = await loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
+await loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 const localUsage = new Map(); // stores how many seconds of voice each user has used
 const usageLimitSeconds = 5 * 60; // 5 minutes limit per user (in seconds)
 const speechRate = 3; // speed at which the Echo speaks
@@ -26,7 +26,7 @@ sendButton.disabled = true;
 // currentUser can either be a User or null (if no one is signed in) 
 let currentUser: User | null = null;
 
-supabase.auth.onAuthStateChange((event, session) => {
+supabase.auth.onAuthStateChange((_, session) => {
   if (session?.user) {
     currentUser = session.user;
     console.log("User signed in:", currentUser.email);
@@ -58,9 +58,9 @@ subscriptionButton.addEventListener("click", () => {
 });
 
 
-async function getOrCreateEcho(userId, echoName) { 
+async function getOrCreateEcho(userId: string, echoName: string) { 
   // Tries to find an existing Echo for this user
-  let { data: echo, error } = await supabase
+  let { data: echo, error: _error } = await supabase
     .from('echos')        // table name
     .select('*')          // get all columns
     .eq('name', echoName) // where name matches echoName
@@ -69,7 +69,7 @@ async function getOrCreateEcho(userId, echoName) {
 
   if (!echo) {
     // If no Echo exists, create a new one
-    const { data, error } = await supabase // YOU ARE RE-DECLARING ERROR HERE - REMEMBER TO COME BACK AND FIX THIS (OR AT LEAST CONSIDER IT)
+    const { data, error: _error } = await supabase // YOU ARE RE-DECLARING ERROR HERE - REMEMBER TO COME BACK AND FIX THIS (OR AT LEAST CONSIDER IT)
       .from('echos')
       .insert([{ user_id: userId, name: echoName }]) // insert a row with user_id and name
       .select() 
@@ -92,7 +92,7 @@ function updateUsageBar(echoId: string) {
   // assign the value for the given echoID if it is not 0 to usedSeconds variable. If the value for echoID is a falsy value,
   const usedSeconds = localUsage.get(echoId) || 0; //  assign value of 0 to usedSeconds variable
   const usedMinutes = Math.floor(usedSeconds / 60); // assign number of inutes used in integer floors to usedMinutes variable
-  document.getElementById("used-minutes").textContent = usedMinutes; // fill bar with number of minutes used - floor values used
+  document.getElementById("used-minutes")?.textContent = usedMinutes.toString(); // fill bar with number of minutes used - floor values used
 }
 
 
@@ -128,7 +128,8 @@ async function speakText(text: string, echoId: string, playButton: HTMLButtonEle
 
   // Check quota locally first
   if (usedSeconds >= usageLimitSeconds) {
-    alert(`You have reached your usage limit for ${currentEcho.name}! Please review payment options.
+    if (!currentEcho) return; // early exit
+    alert(`You have reached your usage limit for ${currentEcho!.name} Please review payment options.
            by clicking the "Subscription Options" button below`)
     sendButton.disabled = true;
     playButton.disabled = true;
@@ -197,7 +198,7 @@ async function sendMessage() {
   if (!currentUser) return alert("Please sign in first!");
 
   // Get the cached user's ID
-  const userId = currentUser.id;
+  const userId = currentUser!.id;
 
   const message = input.value.trim();
   if (!message) return;
@@ -205,13 +206,13 @@ async function sendMessage() {
   if (!currentEcho) {
     // Only create/fetch the echo the first time
     currentEcho = await getOrCreateEcho(userId, extractEchoNameFromMessage(message));
-    document.getElementById("echo-header").textContent = `Echo Profile: ${currentEcho.name}`;
-    await initializeUsage(currentEcho.id);
+    document.getElementById("echo-header")?.textContent = `Echo Profile: ${currentEcho!.name}`;
+    await initializeUsage(currentEcho!.id);
   }
 
-  const usedSeconds = localUsage.get(currentEcho.id) || 0;
+  const usedSeconds = localUsage.get(currentEcho!.id) || 0;
   if (usedSeconds >= usageLimitSeconds) {
-    alert(`You have reached your usage limit for ${currentEcho.name}! Please review payment options.`);
+    alert(`You have reached your usage limit for ${currentEcho!.name} Please review payment options.`);
     sendButton.disabled = true;
     return;
   }
@@ -226,13 +227,13 @@ async function sendMessage() {
   // Display and speak Echo response
   const echoContainer = document.createElement('div');
   const responseText = document.createElement('span');
-  responseText.textContent = `${currentEcho.name}: ${response}`;
+  responseText.textContent = `${currentEcho!.name}: ${response}`;
   echoContainer.appendChild(responseText);
 
   const playButton = document.createElement('button');
   playButton.textContent = '🔊';
   playButton.style.marginLeft = '10px';
-  playButton.onclick = () => speakText(response, currentEcho.id, playButton);
+  playButton.onclick = () => speakText(response, currentEcho!.id, playButton);
   echoContainer.appendChild(playButton);
 
   chatWindow.appendChild(echoContainer);
@@ -240,14 +241,14 @@ async function sendMessage() {
   // ---------------------------
   // ADDED: Insert echo response into echo_responses table
   await supabase.from('echo_responses').insert([{
-    echo_id: currentEcho.id,  // ADDED
+    echo_id: currentEcho!.id,  // ADDED
     user_id: userId,        // ADDED
     echo_response: response,         // ADDED
     user_message: message
   }]);
 
   // Speak and track usage
-  speakText(response, currentEcho.id, playButton);
+  speakText(response, currentEcho!.id, playButton);
 
   input.value = ''; // clear input
 }
