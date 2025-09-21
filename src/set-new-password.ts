@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseConfig.ts";
+import { supabase } from "./supabaseConfig";
 
 // Grab DOM elements
 const newPasswordInput = document.getElementById('new-password-input') as HTMLInputElement;

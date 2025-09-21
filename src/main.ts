@@ -1,6 +1,6 @@
 import './style.css';
 
-import { supabase } from "./supabaseConfig.ts";
+import { supabase } from "./supabaseConfig";
 
 // Grab the input fields and button from the DOM
 const emailInput = document.getElementById('email-input') as HTMLInputElement;
@@ -9,7 +9,11 @@ const signInButton = document.getElementById('sign-in-button') as HTMLButtonElem
 const resetPasswordButton = document.getElementById('reset-password-button') as HTMLButtonElement;
 const authMessage = document.getElementById('auth-message') as HTMLElement;
 
-await supabase.auth.signOut();
+async function init() {
+  await supabase.auth.signOut();
+}
+
+init();
 
 // Navigate to reset-password.html when clicked
 resetPasswordButton.addEventListener('click', () => {

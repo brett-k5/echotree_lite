@@ -4,11 +4,13 @@ import './style.css';
 // 1. Import Supabase client
 // ---------------------------
 import { loadStripe } from "@stripe/stripe-js";
-import { supabase } from "./supabaseConfig.ts";
+import { supabase } from "./supabaseConfig";
 import type { User } from '@supabase/supabase-js';
 
-
-await loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
+async function init() {
+  await loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
+}
+ init()
 const localUsage = new Map(); // stores how many seconds of voice each user has used
 const usageLimitSeconds = 5 * 60; // 5 minutes limit per user (in seconds)
 const speechRate = 3; // speed at which the Echo speaks

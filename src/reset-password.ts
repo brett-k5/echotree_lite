@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseConfig.ts";
+import { supabase } from "./supabaseConfig";
 
 // Grab DOM elements
 const emailInput = document.getElementById('reset-email-input') as HTMLInputElement;
