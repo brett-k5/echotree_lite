@@ -214,7 +214,7 @@ async function sendMessage() {
 
   const usedSeconds = localUsage.get(currentEcho!.id) || 0;
   if (usedSeconds >= usageLimitSeconds) {
-    alert(`You have reached your usage limit for ${currentEcho!.name} Please review payment options.`);
+    alert(`You have reached your usage limit for ${currentEcho!.name}. Please review payment options by clicking the "Subscription Options" button below.`);
     sendButton.disabled = true;
     return;
   }
