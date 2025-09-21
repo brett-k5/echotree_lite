@@ -3,11 +3,11 @@ import './style.css';
 // ---------------------------
 // 1. Import Supabase client
 // ---------------------------
+import { loadStripe } from "@stripe/stripe-js";
 import { supabase } from "./supabaseConfig.ts";
 
-// ---------------------------
-// 3. Variables for voice usage
-// ---------------------------
+
+const stripe = await loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 const localUsage = new Map(); // stores how many seconds of voice each user has used
 const usageLimitSeconds = 5 * 60; // 5 minutes limit per user (in seconds)
 const speechRate = 3; // speed at which the Echo speaks
@@ -15,6 +15,7 @@ const averageWordsPerMinute = 30; // estimate for calculating how long speech ta
 
 const signOutButton = document.getElementById("sign-out-button") as HTMLButtonElement;
 const sendButton = document.getElementById("send-button") as HTMLButtonElement;
+const subscriptionButton = document.getElementById("subscription-button") as HTMLButtonElement;
 const messageElement = document.getElementById("usage-message") as HTMLDivElement; // HTML element to display warning messages
 const input = document.getElementById('user-input') as HTMLInputElement;
 const chatWindow = document.getElementById('chat-window') as HTMLElement;
@@ -36,6 +37,7 @@ supabase.auth.onAuthStateChange((event, session) => {
   }
 });
 
+
 signOutButton.addEventListener("click", async () => {
   try {
     await supabase.auth.signOut();
@@ -48,9 +50,11 @@ signOutButton.addEventListener("click", async () => {
 
 sendButton.addEventListener("click", sendMessage);
 
-// ---------------------------
-// 5. Get or create Echo
-// ---------------------------
+
+subscriptionButton.addEventListener("click", () => {
+  window.location.href = "payment-plans.html";
+});
+
 
 async function getOrCreateEcho(userId, echoName) { 
   // Tries to find an existing Echo for this user
@@ -122,7 +126,8 @@ async function speakText(text, echoId) {
 
   // Check quota locally first
   if (usedSeconds >= usageLimitSeconds) {
-    alert(`You have reached your usage limit for ${currentEcho.name}! Please review payment options.`)
+    alert(`You have reached your usage limit for ${currentEcho.name}! Please review payment options.
+           by clicking the "Subscription Options" button below`)
     sendButton.disabled = true;
     playButton.disabled = true;
     return;

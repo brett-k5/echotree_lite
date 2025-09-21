@@ -1,11 +1,9 @@
-// supabaseConfig.ts
-import dotenv from "dotenv";
-dotenv.config();
-import { createClient } from "@supabase/supabase-js";
+// supabaseConfig.js
+export const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+export const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-dotenv.config(); // loads .env into process.env
 
-export const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY
-);
+import { createClient } from '@supabase/supabase-js';
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
