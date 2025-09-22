@@ -1,4 +1,3 @@
-
 import { supabase } from "./supabaseConfig";
 
 const pathname = window.location.pathname;
@@ -77,7 +76,7 @@ signInButton.addEventListener('click', async () => {
     // Delay redirect by 22 seconds (22000 ms)
     setTimeout(() => {
       window.location.href = "chat.html";
-   }, 22000);
+    }, 22000);
   }
 
   else {

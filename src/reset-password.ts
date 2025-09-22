@@ -1,5 +1,3 @@
-import { supabase } from "./supabaseConfig";
-
 // Grab DOM elements
 const emailInput = document.getElementById('reset-email-input') as HTMLInputElement;
 const sendButton = document.getElementById('send-reset-link-button') as HTMLButtonElement;
@@ -38,7 +36,7 @@ sendButton.addEventListener('click', async () => {
 
     // Success
     resetMessage.textContent = "A password reset link has been sent to your email. " +
-                               "Check your inbox and follow the instructions to reset your password.";
+                              "Check your inbox and follow the instructions to reset your password.";
     emailInput.value = "";
 
   } catch (err) {
