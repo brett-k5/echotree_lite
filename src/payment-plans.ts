@@ -1,5 +1,3 @@
-// src/payment-plans.ts
-
 async function goToCheckout(plan: string) {
   const response = await fetch("/api/create-checkout-session", {
     method: "POST",

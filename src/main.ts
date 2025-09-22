@@ -1,6 +1,17 @@
-import './style.css';
 
 import { supabase } from "./supabaseConfig";
+
+const pathname = window.location.pathname;
+
+if (pathname.endsWith('chat.html')) {
+  import('./chat');
+} else if (pathname.endsWith('payment-plans.html')) {
+  import('./payment-plans');
+} else if (pathname.endsWith('reset-password.html')) {
+  import('./reset-password');
+} else if (pathname.endsWith('set-new-password.html')) {
+  import('./set-new-password');
+}
 
 // Grab the input fields and button from the DOM
 const emailInput = document.getElementById('email-input') as HTMLInputElement;
