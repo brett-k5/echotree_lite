@@ -12,12 +12,15 @@
   },
   "devDependencies": {
     "@types/node": "^20.19.17",
+    "@vercel/node": "^5.3.24",
     "typescript": "~5.8.3",
     "vite": "^7.1.6"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@stripe/stripe-js": "^7.9.0",
     "@supabase/supabase-js": "^2.57.4",
-    "dotenv": "^17.2.2"
+    "dotenv": "^17.2.2",
+    "stripe": "^18.5.0"
   }
 }

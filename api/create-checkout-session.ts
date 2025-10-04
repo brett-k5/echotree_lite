@@ -47,12 +47,12 @@ export default async function handler(
       payment_method_types: ["card"],
       mode: plan === "permanent" ? "payment" : "subscription",
       line_items: [{ price: priceMap[plan], quantity: 1 }],
-      success_url: "https://echotree-lite.vercel.app/success",
-      cancel_url: "https://echotree-lite.vercel.app/cancel",
-      customer_creation: plan === "permanent" ? undefined : "always" // Improves subscription tracking
+      success_url: "https://echotree-lite.vercel.app/success.html",
+      cancel_url: "https://echotree-lite.vercel.app/cancel.html",
+      customer_creation: plan === "permanent" ? "always" : undefined // Improves subscription tracking
     });
 
-    //   Return session URL to frontend
+    // Return session URL to frontend
     res.status(200).json({ url: session.url });
   } catch (err) {
     //   Error logging and response

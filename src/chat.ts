@@ -1,6 +1,7 @@
 // ---------------------------
 // 1. Import Supabase client
 // ---------------------------
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { loadStripe } from "@stripe/stripe-js";
 import { supabase } from "./supabaseConfig";
 import type { User } from '@supabase/supabase-js';
@@ -13,6 +14,7 @@ const localUsage = new Map(); // stores how many seconds of voice each user has 
 const usageLimitSeconds = 5 * 60; // 5 minutes limit per user (in seconds)
 const speechRate = 3; // speed at which the Echo speaks
 const averageWordsPerMinute = 30; // estimate for calculating how long speech takes
+const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
 
 const signOutButton = document.getElementById("sign-out-button") as HTMLButtonElement;
 const sendButton = document.getElementById("send-button") as HTMLButtonElement;
@@ -58,6 +60,33 @@ subscriptionButton.addEventListener("click", () => {
 });
 
 
+async function generateRAGResponse(userMessage: string): Promise<string> {
+  const res = await fetch('/api/generateResponse', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userMessage }),
+  });
+  
+  let data;
+  try {
+    data = await res.json();
+  }
+  catch (err) {
+    console.error("Failed to parse JSON:", err);
+    alert("Server returned an invalid response.");
+    return "Sorry, something went wrong while processing your message.";
+  }
+  
+  if (!res.ok || ! data.text) {
+    console.error("Server error:", data.error || data);
+    alert("Something went wrong. Please try again later.")
+    return "Sorry, I couldn't generate a response just now.";
+  }
+  
+  return data.text;
+}
+
+
 async function getOrCreateEcho(userId: string, echoName: string) { 
   // Tries to find an existing Echo for this user
   let { data: echo, error: _error } = await supabase
@@ -78,13 +107,6 @@ async function getOrCreateEcho(userId: string, echoName: string) {
   }
 
   return echo; // return existing Echo if found
-}
-
-
-
-// Define a function  that returns generic response regardless of input
-function getFakeResponse() { 
-    return "that's a great question! Let me tell you about it"; // generic response
 }
 
 
@@ -222,7 +244,7 @@ async function sendMessage() {
   userMsg.textContent = "You: " + message;
   chatWindow.appendChild(userMsg);
 
-  const response = getFakeResponse();
+  const response = await generateRAGResponse(message)
 
   // Display and speak Echo response
   const echoContainer = document.createElement('div');
