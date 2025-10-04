@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { supabase } from "./supabaseServer.js";
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import fetch from 'node-fetch';
 
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -9,10 +10,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!geminiKey) {
       throw new Error("GEMINI_API_KEY is not defined in environment variables");
     }
-    const genAI = new GoogleGenerativeAI({
-      apiKey: geminiKey,
-      apiVersion: "v1"
-    });
+    const genAI = new GoogleGenerativeAI(geminiKey);
 
     const { userMessage } = req.body;
 
@@ -74,11 +72,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       """
       `;
 
-    // 4. Call Gemini model with context
-    const genModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const response = await genModel.generateContent(prompt);
+    // call Gemini model with context
+    const response = await fetch(
+      "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${geminiKey}`
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [{text: prompt}]
+            }
+          ]
+        })
+      }
+    )
 
-    return res.status(200).json({ text: response.response.text() });
+
+    const resultJson = await response.json();
+    const generatedText = resultJson.candidates?.[0]?.content?.parts?.[0]?.text;
+    
+    return res.status(200).json({ text: generatedText });
   } 
   catch (err) {
     const error = err as Error 
