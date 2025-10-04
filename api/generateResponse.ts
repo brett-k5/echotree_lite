@@ -18,7 +18,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // 1. Embed user message
-    const model = genAI.getGenerativeModel({ model: "text-embedding-001" });
+    const model = genAI.getGenerativeModel({ model: "gemini-embedding-001" });
     const result = await model.embedContent(userMessage);
     const userEmbedding = result.embedding.values;
 
