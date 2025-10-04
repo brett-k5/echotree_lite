@@ -9,7 +9,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!geminiKey) {
       throw new Error("GEMINI_API_KEY is not defined in environment variables");
     }
-    const genAI = new GoogleGenerativeAI(geminiKey);
+    const genAI = new GoogleGenerativeAI({
+      apiKey: geminiKey,
+      apiVersion: "v1"
+    });
 
     const { userMessage } = req.body;
 
