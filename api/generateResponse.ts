@@ -93,6 +93,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
 
     const resultJson = await response.json();
+    console.log("Gemini raw response:", JSON.stringify(resultJson, null, 2));
     const generatedText = resultJson.candidates?.[0]?.content?.parts?.[0]?.text;
     
     return res.status(200).json({ text: generatedText });
