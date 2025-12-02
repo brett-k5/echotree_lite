@@ -25,5 +25,12 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-
+greenlightsFlac/
+clips/
+coqui_ai_TTS/
+TTS/
 .vercel
+
+# Audio files
+*.flac
+*.wav

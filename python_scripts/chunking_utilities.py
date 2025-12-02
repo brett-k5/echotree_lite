@@ -90,3 +90,11 @@ def merge_semantic_chunks(text_chunks, embeddings, min_words=20):
         merged_chunks.append(" ".join(current_chunk))
 
     return merged_chunks
+
+# Function to split text into paragraphs
+def split_few_shots(text):
+    # Split on end-of-sentence punctuation followed by newline(s) OR two or more newlines
+    few_shots = re.split(r'\n{2,}', text)
+    # Strip whitespace and remove empty chunks
+    few_shots = [shot.strip() for shot in few_shots if shot.strip()]
+    return few_shots

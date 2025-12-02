@@ -12,8 +12,8 @@ async function init() {
  init()
 const localUsage = new Map(); // stores how many seconds of voice each user has used
 const usageLimitSeconds = 5 * 60; // 5 minutes limit per user (in seconds)
-const speechRate = 3; // speed at which the Echo speaks
-const averageWordsPerMinute = 30; // estimate for calculating how long speech takes
+const speechRate = 0.75; // speed at which the Echo speaks
+const averageWordsPerMinute = 160; // estimate for calculating how long speech takes
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
 
 const signOutButton = document.getElementById("sign-out-button") as HTMLButtonElement;
@@ -60,30 +60,72 @@ subscriptionButton.addEventListener("click", () => {
 });
 
 
-async function generateRAGResponse(userMessage: string): Promise<string> {
+interface currentExchange {
+  previousUserMessage: string;
+  previousEchoResponse: string;
+  previousTextContent: string[];
+  };
+
+let currentConversation: currentExchange[] = []
+
+async function generateRAGResponse(userMessage: string, user_id: string, echo_id: string): Promise<string> {
+
+  if (!user_id || !echo_id) {
+  console.error("Cannot send message: missing user or echo ID");
+  return;
+  }
+
+  const payload = {
+  userMessage: userMessage, // from input.value.trim()
+  currentConversation, // will be an empty array on the first call.
+  user_id,
+  echo_id
+  };
+
   const res = await fetch('/api/generateResponse', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userMessage }),
+    body: JSON.stringify(payload ),
   });
-  
-  let data;
-  try {
-    data = await res.json();
+
+  if (!res.ok) {
+    console.error("Server error:", res.statusText);
+    alert("Something went wrong. Please try again later.");
+    return "Sorry, I couldn't generate a response just now.";
   }
+  
+  let previousUserMessage = "";
+  let previousEchoResponse = "";
+  let previousTextContent: string[] = [];
+  let echoResponse: string = "";
+
+
+  try {
+    const {
+      previousUserMessage: prevUserMess,
+      previousEchoResponse: prevEchResp, 
+      previousTextContent: prevTextCont,  
+      echoResponse: echResp } = await res.json();
+      
+      previousUserMessage = prevUserMess
+      previousEchoResponse = prevEchResp
+      previousTextContent = prevTextCont
+      echoResponse = echResp
+
+    currentConversation.push({
+      previousUserMessage,
+      previousEchoResponse,
+      previousTextContent,
+    })
+  }
+ 
   catch (err) {
     console.error("Failed to parse JSON:", err);
     alert("Server returned an invalid response.");
     return "Sorry, something went wrong while processing your message.";
   }
   
-  if (!res.ok || ! data.text) {
-    console.error("Server error:", data.error || data);
-    alert("Something went wrong. Please try again later.")
-    return "Sorry, I couldn't generate a response just now.";
-  }
-  
-  return data.text;
+  return echoResponse;
 }
 
 
@@ -98,7 +140,7 @@ async function getOrCreateEcho(userId: string, echoName: string) {
 
   if (!echo) {
     // If no Echo exists, create a new one
-    const { data, error: _error } = await supabase // YOU ARE RE-DECLARING ERROR HERE - REMEMBER TO COME BACK AND FIX THIS (OR AT LEAST CONSIDER IT)
+    const { data, error: _error } = await supabase 
       .from('echos')
       .insert([{ user_id: userId, name: echoName }]) // insert a row with user_id and name
       .select() 
@@ -151,8 +193,7 @@ async function speakText(text: string, echoId: string, playButton: HTMLButtonEle
   // Check quota locally first
   if (usedSeconds >= usageLimitSeconds) {
     if (!currentEcho) return; // early exit
-    alert(`You have reached your usage limit for ${currentEcho!.name} Please review payment options.
-           by clicking the "Subscription Options" button below`)
+    alert(`You have reached your usage limit for ${currentEcho!.name} Please review payment options by clicking the "Subscription Options" button below`)
     sendButton.disabled = true;
     playButton.disabled = true;
     return;
@@ -244,7 +285,7 @@ async function sendMessage() {
   userMsg.textContent = "You: " + message;
   chatWindow.appendChild(userMsg);
 
-  const response = await generateRAGResponse(message)
+  const response = await generateRAGResponse(message, userId, currentEcho!.id)
 
   // Display and speak Echo response
   const echoContainer = document.createElement('div');
@@ -263,9 +304,9 @@ async function sendMessage() {
   // ---------------------------
   // ADDED: Insert echo response into echo_responses table
   await supabase.from('echo_responses').insert([{
-    echo_id: currentEcho!.id,  // ADDED
-    user_id: userId,        // ADDED
-    echo_response: response,         // ADDED
+    echo_id: currentEcho!.id,  
+    user_id: userId,        
+    echo_response: response,         
     user_message: message
   }]);
 
@@ -274,8 +315,3 @@ async function sendMessage() {
 
   input.value = ''; // clear input
 }
-
-
-
-
-
