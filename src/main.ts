@@ -2,6 +2,7 @@ import { supabase } from "./supabaseConfig";
 
 const pathname = window.location.pathname;
 
+// Load TypesCript scripts to their corresponding webpages
 if (pathname.endsWith('chat.html')) {
   import('./chat');
 } else if (pathname.endsWith('payment-plans.html')) {
@@ -62,13 +63,7 @@ signInButton.addEventListener('click', async () => {
 
     authMessage.style.color = "green";
     authMessage.textContent = 
-    "Account created! A confirmation email will be sent to the email you provided.\n" +
-    "If you are logged into echotree lite following this message you will be able to use it\n " +
-    "for the duration of this browser session. However, if you do not confirm your email you\n " +
-    "may be locked out in the future, so please do so. If you are returned to this page following\n " +
-    "this message it may be because the confirmation email was already sent and you need to confirm\n " +
-    "it before you can be logged in. In this case please check your email and verify your email by clicking\n " +
-    "the 'confirm' button. Welcome to echotree lite!";
+    "Account created! A confirmation email will be sent to the email you provided.\n";
 
     // Log success for debugging
     console.log("New account created for:", signUpData.user?.email);

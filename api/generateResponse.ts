@@ -4,6 +4,7 @@ import { supabase } from "./supabaseServer.js";
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import fetch, { Response as FetchResponse } from 'node-fetch';
 
+// Define types for returned content from supabase following vector similarity search
 type MatchRow = { text_preview: string, similarity: number, chunk_index: number };
 type MatchRowShot = { id: string, shot_example: string, similarity: number}
 type MatchRowPast = {id: string, 
@@ -16,18 +17,20 @@ type MatchRowPast = {id: string,
                      interaction_index: number
                     }
 
-
+// Define CurrentExchange type
 interface CurrentExchange {
   previousUserMessage: string;
   previousEchoResponse: string;
   previousTextContent: string[];
 };
 
+// Define a function to normalize vector embeddings
 function normalizeVector(vec: number[]): number[] {
       const norm = Math.sqrt(vec.reduce((sum, val) => sum + val * val, 0));
       return vec.map(val => val / norm);
 };
 
+// Define function for Gemini embedding API call
 async function embeddingAPICall(token: string, text: string, taskType: string): Promise<FetchResponse> {
   const response = await fetch(
       "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent",
@@ -47,6 +50,7 @@ async function embeddingAPICall(token: string, text: string, taskType: string): 
   return response
 }
 
+// Define function to trigger SQL based vector similarity search
 async function matchDocs(
       sql_function_name: string, 
       match_count: number,
@@ -54,6 +58,8 @@ async function matchDocs(
       user_id: string | null = null,
       echo_id: string | null = null
     ): Promise<MatchRow[] | MatchRowPast[] | null> {
+
+      // Define parameters for SQL function to be applied in Supabase
       const params: Record<string, any> = {
         query_embedding: userEmbedding,
         match_count: match_count 
@@ -63,17 +69,20 @@ async function matchDocs(
       if (user_id) params.user_id_input = user_id;
       if (echo_id) params.echo_id_input = echo_id;
 
+      // Call SQL supabase embedding similarity search function and assign result to matchesContent variable
       const { data: matchesContent, error} = await supabase.rpc(sql_function_name, params) as {
         data: MatchRow[] | MatchRowPast[] | null;
         error: any;
       };
-
+      
+      // Return retrieved content or log an error if no embeddings are returned
       if (matchesContent) return matchesContent;
       if (error) console.error("Error fetching matches:", error);
 
       return null;
 }
 
+// Make this function available to other modules (but specifically chat.ts)
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try { 
     const rawKey = process.env.GOOGLE_PRIVATE_KEY!;
@@ -92,14 +101,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const accessToken = await auth.authorize();
     const token = accessToken.access_token;
     console.log("Access token:", token?.slice(0, 20));
-
-    const { userMessage, currentConversation = [] } = req.body;
-    if (!userMessage || typeof userMessage !== "string") {
+    
+    // Desctructure the response from chat.ts
+    const { userMessage, currentConversation = [] } = req.body; // unpack content of the request from chat.ts into userMessage and currentConversation variables. If no prior conversation contnent, currentConversation will default to an empty array
+    if (!userMessage || typeof userMessage !== "string") {     // handle an invalid user message
       return res.status(400).json({error: "Invalid user message"});
-    }
+    } 
 
     console.log("Current conversation full:", currentConversation)
-
+    
+    // Initialize placeholder variables (these variables all exist in the currentConversation portino of the Vercel request, but
+    // We need to intialize them with type definitions before accessing them there for the sake of type safety)
     let previousUserMessage: string = "";
     let previousEchoResponse: string = "";
     let previousTextContent: string[] = [];
@@ -107,45 +119,55 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let currentConvContent = "";
     let textContentBlocks = "";
     
-    // Change the value based on how much memory of current convo you want the echo to have.
-    const exchanges = currentConversation.slice(-2)
+    
+    const exchanges = currentConversation.slice(-2) // Change the value based on how much memory of current convo you want the echo to have.
 
     console.log("Current exchange content prior to extraction and formatting:", exchanges)
 
+    // Format exchange history of current context window
     if (exchanges.length > 0) {
-      currentConvContent = exchanges.map((turn: CurrentExchange, index: number) =>
-        `Turn ${index + 1}:\n` +
+      currentConvContent = exchanges.map((turn: CurrentExchange, index: number) => //iterate over exchanges variable
+        `Turn ${index + 1}:\n` + // make order of exchanges clear for the prompt
         `**USER** ${turn.previousUserMessage}\n` +
-        `**GEMINI RESPONSE** ${turn.previousEchoResponse}`).join('\n\n--- TURN SEPARATOR ---\n\n');
-
-      textContentBlocks = exchanges.filter(turn => turn.previousTextContent.length > 0)
+        `**GEMINI RESPONSE** ${turn.previousEchoResponse}`).join('\n\n--- TURN SEPARATOR ---\n\n'); // make clear where turns end
+                                                                                                    // and where they begin
+      // include text basis for previous exchanges in prompt (for each exchange)
+      textContentBlocks = exchanges.filter(turn => turn.previousTextContent.length > 0) // include only tokens where text content is present
         .map((turn: CurrentExchange) =>
-        `text content used for recent exchanges:\n${turn.previousTextContent.join('\n')}`
+        `text content used for recent exchanges:\n${turn.previousTextContent.join('\n')}`  // label text content to differentiate from previous exchanges 
         );
     }
-
+    
+    // Log conversation from current context window in Vercel
     console.log("Current exchange history:", currentConvContent)
-
+    
+    // Embed user message as a retrieval query
     const embeddingResponse = await embeddingAPICall(token, userMessage!, "RETRIEVAL_QUERY")
-
+    
+    // Parse json string and assign to embeddingJson variable
     const embeddingJson = await embeddingResponse.json();
-    if (!embeddingJson.embedding?.values) {
-      console.error("Embedding response:", JSON.stringify(embeddingJson, null, 2));
+    if (!embeddingJson.embedding?.values) { 
+      console.error("Embedding response:", JSON.stringify(embeddingJson, null, 2)); // log error if there are no values in the embedding object
       throw new Error("Gemini embedding response is missing 'values'");
     }
+    // Normalize the vector embeddings
     const userEmbedding = normalizeVector(embeddingJson.embedding.values);
-
+    
+    // Call matchDocs function on user embedding to retrieve short few shot examples
     const fewShotsShort = await matchDocs("match_docs_few_shot_short", 2, userEmbedding) as MatchRowShot[] | null
-
+    
+    // Call matchdocs function on user embedding to retrieve long few shot examples
     const fewShotsLong = await matchDocs("match_docs_few_shot_long", 1, userEmbedding) as MatchRowShot[] | null
 
+    // Check to ake sure user_id and echo_id variables are being extracted from the Vercel request properly
     if (req.body.user_id || req.body.echo_id) {
       console.log(`req.body IS properly extracting user_id: ${req.body.user_id} and echo_id: ${req.body.echo_id}`)
     }
     else {
       console.log("req.body is NOT properly extracting user_id and echo_id")
     }
-
+    
+    // Assign variables from Vercel request
     const userId = req.body.user_id
     const echoId = req.body.echo_id
 
@@ -153,9 +175,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
 
 
-
+    // Assign past discussions relevant to current topic to matchesPast
     const matchesPast = await matchDocs("match_past_exchanges", 3, userEmbedding, userId, echoId) as MatchRowPast[] | null
-
+    
+    // Assign Greenlights which was returned in response to the Retrieval query (which was the user message) to matchesContent variable
     const matchesContent = await matchDocs("match_documents", 7, userEmbedding) as MatchRow[] | null;
 
     // Process few shots for RAG prompt
@@ -166,9 +189,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .map(f => f.shot_example)
       .join("\n\n--- FEW SHOT SEPARATOR ---\n\n");
 
-    const pastExchanges = (matchesPast ?? [])
+      // Make sure past exchanges appear in correct order
+      const pastExchanges = (matchesPast ?? [])
       .sort((a, b) => a.interaction_index - b.interaction_index)
       .map((f, i, arr) => {
+        // If previous exchanges are not continuous, note in the prompt
         const prev = arr[i - 1];
         const gap = prev && f. interaction_index !== prev.interaction_index + 1;
         const separator = gap
@@ -179,7 +204,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     
       console.log("Past interactions on this topic:", pastExchanges)
     
-    const matchesArray = [matchesContent, fewShotsShort, fewShotsLong]
+    
+      const matchesArray = [matchesContent, fewShotsShort, fewShotsLong]
 
 
     for (const matches of matchesArray) {
@@ -190,9 +216,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         console.log("No matches found.")
       }
     }
-    const thresholds = [0.55]
+    const thresholds = [0.55] // Set vector similarity standard for retrieved Greenlights text
     let filtered: MatchRow[] = []
 
+    // Filter for Greenlights text matches that exceed threshold.
     for (const t of thresholds) {
       // 1st >= is arrow function, 2nd is greater than or equal to
       filtered = (matchesContent || []).filter((m: MatchRow) => m.similarity >= t);
@@ -201,10 +228,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     let ordered: MatchRow[] = [] 
     if (filtered) {
+      // sort Greenlights text by chunk index (we want everything to appear in the order it appears in the book)
       ordered = filtered.sort((a, b) => a.chunk_index - b.chunk_index)
     }
 
     console.log(`Number of chunks returned: ${ordered.length}`)
+    
 
     let textContent: string[] = []; 
     for (let i = 0; i < ordered.length; i++) {
@@ -231,7 +260,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (textContent.length === 0) {
       return res.status(200).json({
         previousUserMessage: userMessage,
-        previousEchoResponse: "I have no idea what you are talking about",
+        previousEchoResponse: "I have no idea what you are talking about", // MaccOnaughey has no experience recounted in Greenlights that 
+        // is relevant to what the user is asking
         previousTextContent: [],
         echoResponse: "I have no idea what you are talking about"
       });
@@ -305,7 +335,7 @@ ${userMessage}
         body: JSON.stringify({
           contents: [
             {
-              parts: [{text: prompt}]
+              parts: [{text: prompt}] // pass prompt to Gemini's text Generator 
             }
           ]
         })
@@ -316,13 +346,19 @@ ${userMessage}
     console.log("Gemini raw response:", JSON.stringify(resultJson, null, 2));
     const echoResponse = resultJson.candidates?.[0]?.content?.parts?.[0]?.text;
     
+    // Assign userMessage, echoResponse, and textContent variables from this round of responses 
+    // to be embedded with Gemini embeddings. Ultimately will be returned as part of Vercel response
+    // with new variable names (see below). This is how we maintain the context window - each response is 
+    // sent back to chat.ts added to currentConv
     previousUserMessage = userMessage
     previousEchoResponse = echoResponse 
     previousTextContent = textContent
-
+    
+    // Embed user message (now previousUserMessage) and echo response (now previousEchoResponse)
     const prevUserMessage = await embeddingAPICall(token, previousUserMessage!, "RETRIEVAL_DOCUMENT")
     const prevEchoResponse = await embeddingAPICall(token, previousEchoResponse!, "RETRIEVAL_DOCUMENT")
 
+    // Parse json strings
     const prevUserMessageJson = await prevUserMessage.json()
     const prevEchoResponseJson = await prevEchoResponse.json()
 
@@ -335,15 +371,18 @@ ${userMessage}
       console.error("Previous echo response embedding response:", JSON.stringify(prevEchoResponseJson, null, 2));
       throw new Error("Gemini embedding response is missing 'values'");
     }
+    
+    // Nornalize vector embeddings
     const prevMessageEmbedding = normalizeVector(prevUserMessageJson.embedding.values);
     const prevResponseEmbedding = normalizeVector(prevEchoResponseJson.embedding.values);
 
-    
+    // Insert user message and echo response from this round to be used for context in future exchanges
     await supabase.from('echo_responses').insert([{
       user_mess_vec: prevMessageEmbedding,
       echo_resp_vec: prevResponseEmbedding
     }])
     
+    // Send user message, echo response, and text content back to chat.ts to build context window
     return res.status(200).json({
       previousUserMessage,
       previousEchoResponse,

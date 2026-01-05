@@ -1,6 +1,4 @@
-// ---------------------------
-// 1. Import Supabase client
-// ---------------------------
+// Import supabase client
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { loadStripe } from "@stripe/stripe-js";
 import { supabase } from "./supabaseConfig";
@@ -68,6 +66,7 @@ interface currentExchange {
 
 let currentConversation: currentExchange[] = []
 
+// Define a function to inject echo response into the chat window
 async function generateRAGResponse(userMessage: string, user_id: string, echo_id: string): Promise<string> {
 
   if (!user_id || !echo_id) {
@@ -301,8 +300,7 @@ async function sendMessage() {
 
   chatWindow.appendChild(echoContainer);
 
-  // ---------------------------
-  // ADDED: Insert echo response into echo_responses table
+  // Insert echo response into echo_responses table
   await supabase.from('echo_responses').insert([{
     echo_id: currentEcho!.id,  
     user_id: userId,        
