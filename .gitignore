@@ -30,7 +30,7 @@ clips/
 coqui_ai_TTS/
 TTS/
 .vercel
-pycache/
+__pycache__/
 
 # Audio files
 *.flac
